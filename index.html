@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuidate Conmigo - Artabría</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.303.0",
+        "@google/generative-ai": "https://esm.sh/@google/generative-ai@0.22.0",
+        "@stripe/stripe-js": "https://esm.sh/@stripe/stripe-js@5.7.0",
+        "@stripe/react-stripe-js": "https://esm.sh/@stripe/react-stripe-js@3.1.1?deps=react@18.2.0,react-dom@18.2.0"
+      }
+    }
+    </script>
+
+    <style>
+        :root {
+            --primary-violet: #7d4d7d;
+            --bg-lavender: #f2e8f2;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-lavender);
+            color: #333;
+            scroll-behavior: smooth;
+        }
+        h1, h2, h3, .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+        .btn-primary {
+            background-color: var(--primary-violet);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #6a3f6a;
+            transform: scale(1.02);
+        }
+        .btn-outline {
+            border: 2px solid var(--primary-violet);
+            color: var(--primary-violet);
+            transition: all 0.3s ease;
+        }
+        .btn-outline:hover {
+            background-color: var(--primary-violet);
+            color: white;
+        }
+        /* Animaciones suaves */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.5s ease-out forwards; }
+        
+        /* Scrollbar personalizado */
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #7d4d7d; border-radius: 4px; }
+    </style>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script async src="https://pay.google.com/gp/p/js/pay.js"></script>
+</head>
+<body>
+    
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+          Menu, Search, ShoppingCart, Truck, UserRoundCheck, Lock, 
+          ChevronLeft, ChevronRight, Send, X, MessageSquare, Briefcase, 
+          CheckCircle2, ArrowRight, Info, Mail, Phone, Instagram
+        } from 'lucide-react';
+        import { loadStripe } from '@stripe/stripe-js';
+        import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+        
+        const API_KEY = "AIzaSyCkDLXyoJJKa-tdl_Ao-1a57-70rTI2fu4"; 
+        const GEMINI_FINAL_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+        console.log("Chatbot configurado con endpoint:", GEMINI_FINAL_ENDPOINT.split('?')[0]);
+
+        const Header = ({ cartCount, onCartClick }) => {
+          const [isMenuOpen, setIsMenuOpen] = useState(false);
+          
+          const navLinks = [
+            { name: "Inicio", href: "#inicio" },
+            { name: "Productos", href: "#productos" },
+            { name: "Progreso Real", href: "#progreso" },
+            { name: "Contacto", href: "#contacto" },
+          ];
+
+          const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+          const closeMenu = () => setIsMenuOpen(false);
+
+          return (
+            <header className="bg-white/90 backdrop-blur-sm fixed top-0 w-full z-50 border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <button onClick={toggleMenu} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                   {isMenuOpen ? (
+                    <X className="w-6 h-6 text-[#7d4d7d]" />
+                  ) : (
+                    <Menu className="w-6 h-6 text-[#7d4d7d]" />
+                  )}
+                </button>
+                <div className="w-10 h-10 rounded-full bg-[#f2e8f2] flex items-center justify-center italic font-serif text-[#7d4d7d] font-bold">M</div>
+              </div>
+              
+              <div className="flex items-center gap-6 text-[#7d4d7d]">
+                <Search className="w-6 h-6 cursor-pointer" />
+                <div className="relative cursor-pointer group" onClick={onCartClick}>
+                    <ShoppingCart className="w-6 h-6 group-hover:scale-110 transition" />
+                    {cartCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-[#7d4d7d] text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold border-2 border-white animate-in">
+                            {cartCount}
+                        </span>
+                    )}
+                </div>
+              </div>
+
+              {/* Menú Desplegable */}
+              {isMenuOpen && (
+                <div className="absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl animate-in z-40">
+                  <nav className="flex flex-col py-4">
+                    {navLinks.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        onClick={closeMenu}
+                        className="px-8 py-4 text-[#7d4d7d] font-semibold hover:bg-[#f2e8f2] transition-colors flex items-center justify-between group"
+                      >
+                        {link.name}
+                        <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    ))}
+                  </nav>
+                </div>
+              )}
+            </header>
+          );
+        };
+
+        const Hero = () => (
+          <section id="inicio" className="pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
+            <div className="md:w-1/2 flex justify-center order-2 md:order-1">
+              <div className="relative group">
+                <img 
+                  src="img/FotoPerfil.JPG" 
+                  alt="Marisa Asesora" 
+                  className="rounded-2xl shadow-2xl w-full max-w-md object-cover h-[500px]"
+                />
+                <div className="absolute bottom-4 right-4 bg-white/80 p-3 rounded-full backdrop-blur-sm shadow-lg">
+                  <div className="w-3 h-3 bg-[#7d4d7d] rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+            <div className="md:w-1/2 space-y-8 text-center md:text-left order-1 md:order-2">
+              <h1 className="text-5xl md:text-7xl font-serif text-[#7d4d7d] leading-tight">CUIDATE CONMIGO</h1>
+              <p className="text-xl text-gray-700 leading-relaxed max-w-lg mx-auto md:mx-0">
+                Descubre los productos Artabría de la mano de tu asesora Marisa. Cafés, chocolates e infusiones funcionales para tu bienestar.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                <a href="#productos" className="btn-primary px-8 py-4 rounded-xl font-semibold uppercase tracking-wider shadow-lg text-center">Comprar Artabría</a>
+                <a href="#contacto" className="btn-outline px-8 py-4 rounded-xl font-semibold uppercase tracking-wider text-center">Contactar Conmigo</a>
+              </div>
+              <div className="grid grid-cols-3 gap-4 pt-8 border-t border-[#7d4d7d]/20">
+                <div className="flex flex-col items-center gap-2 text-center text-[#7d4d7d]">
+                  <Truck className="w-8 h-8" />
+                  <span className="text-[10px] uppercase font-bold tracking-widest leading-tight">Envío Rápido</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 text-center text-[#7d4d7d]">
+                  <UserRoundCheck className="w-8 h-8" />
+                  <span className="text-[10px] uppercase font-bold tracking-widest leading-tight">Asesoría Personal</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 text-center text-[#7d4d7d]">
+                  <Lock className="w-8 h-8" />
+                  <span className="text-[10px] uppercase font-bold tracking-widest leading-tight">Pago Seguro</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+
+        // --- MODAL DE CANTIDAD ---
+        const QuantityModal = ({ product, isOpen, onClose, onConfirm }) => {
+          const [quantity, setQuantity] = useState(1);
+          
+          useEffect(() => {
+            if (isOpen) setQuantity(1);
+          }, [isOpen]);
+
+          if (!isOpen || !product) return null;
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in">
+              <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition">
+                    <X className="w-5 h-5 text-gray-500" />
+                </button>
+                <div className="p-8 text-center pt-12">
+                  <div className="w-32 h-32 bg-[#f2e8f2] rounded-3xl mx-auto mb-6 flex items-center justify-center overflow-hidden border border-[#f2e8f2]">
+                    <img src={product.image} alt={product.title} className="w-full h-full object-contain p-4 mix-blend-multiply" />
+                  </div>
+                  <h3 className="text-3xl font-serif text-[#7d4d7d] mb-2">{product.title}</h3>
+                  <p className="text-gray-500 text-sm mb-8 leading-relaxed">Selecciona la cantidad que deseas añadir a tu cesta:</p>
+                  
+                  <div className="flex items-center justify-center gap-8 mb-10 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-10 h-10 rounded-full bg-white border border-gray-200 text-[#7d4d7d] flex items-center justify-center hover:bg-[#7d4d7d] hover:text-white transition shadow-sm text-xl font-bold"
+                    >-</button>
+                    <span className="text-4xl font-serif font-bold text-[#7d4d7d] w-12">{quantity}</span>
+                    <button 
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-10 h-10 rounded-full bg-white border border-gray-200 text-[#7d4d7d] flex items-center justify-center hover:bg-[#7d4d7d] hover:text-white transition shadow-sm text-xl font-bold"
+                    >+</button>
+                  </div>
+                  
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={() => onConfirm(product, quantity)}
+                      className="w-full btn-primary py-4 px-6 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2"
+                    >
+                        Confirmar y Añadir <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={onClose} className="w-full py-3 rounded-xl font-bold text-gray-400 hover:text-gray-600 transition uppercase tracking-widest text-[10px]">Cerrar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // --- STRIPE PAYMENT SYSTEM ---
+        const stripePromise = loadStripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
+
+        const CheckoutForm = ({ totalPrice, onPaymentSuccess, userEmail, setUserEmail }) => {
+            const stripe = useStripe();
+            const elements = useElements();
+            const [message, setMessage] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+
+                if (!stripe || !elements) return;
+
+                setIsLoading(true);
+
+                const { error, paymentIntent } = await stripe.confirmPayment({
+                    elements,
+                    confirmParams: {
+                        receipt_email: userEmail,
+                    },
+                    redirect: 'if_required',
+                });
+
+                if (error) {
+                    setMessage(error.message);
+                } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+                    setMessage("¡Pago realizado con éxito!");
+                    onPaymentSuccess({ email: userEmail });
+                }
+
+                setIsLoading(false);
+            };
+
+            return (
+                <form id="payment-form" onSubmit={handleSubmit} className="mt-6">
+                    <div className="mb-4">
+                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Tu Email para el Recibo</label>
+                        <input 
+                            required 
+                            type="email" 
+                            placeholder="tucorreo@ejemplo.com"
+                            className="w-full bg-gray-50 border-b-2 border-gray-200 p-3 focus:outline-none focus:border-[#7d4d7d] transition mb-4"
+                            value={userEmail}
+                            onChange={(e) => setUserEmail(e.target.value)}
+                        />
+                    </div>
+                    <PaymentElement id="payment-element" options={{ layout: "tabs" }} />
+                    <button disabled={isLoading || !stripe || !elements} id="submit" className="w-full btn-primary py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl text-sm flex items-center justify-center gap-3 hover:-translate-y-1 transition duration-300 mt-6">
+                        <span id="button-text">
+                            {isLoading ? "Procesando..." : `Pagar ${totalPrice}€`}
+                        </span>
+                    </button>
+                    {message && <div id="payment-message" className="mt-4 text-center text-sm font-bold text-[#7d4d7d]">{message}</div>}
+                </form>
+            );
+        };
+
+        const StripePayment = ({ items, onPaymentSuccess }) => {
+            const [clientSecret, setClientSecret] = useState("");
+            const [userEmail, setUserEmail] = useState("");
+
+            const totalPrice = items.reduce((acc, item) => acc + (parseFloat(item.price) * item.quantity), 0);
+
+            useEffect(() => {
+                if (items.length === 0) return;
+                fetch("http://localhost:4242/create-payment-intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ items }),
+                })
+                .then((res) => res.json())
+                .then((data) => setClientSecret(data.clientSecret))
+                .catch(err => console.error("Error contactando al backend de Stripe:", err));
+            }, [items]);
+
+            const appearance = { theme: 'stripe' };
+            const options = { clientSecret, appearance };
+
+            return (
+                <div className="StripeApp mt-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    {clientSecret ? (
+                        <Elements options={options} stripe={stripePromise}>
+                            <CheckoutForm totalPrice={totalPrice} onPaymentSuccess={onPaymentSuccess} userEmail={userEmail} setUserEmail={setUserEmail} />
+                        </Elements>
+                    ) : (
+                        <div className="text-center text-gray-400 text-sm py-4 animate-pulse">Cargando pasarela de pago segura...</div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- CESTA LATERAL (DRAWER) ---
+        const CartDrawer = ({ items, isOpen, onClose, onRemove, onUpdateQuantity, onClearCart }) => {
+          const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+
+          return (
+            <>
+              {/* Overlay */}
+              {isOpen && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80] transition-opacity duration-300" onClick={onClose}></div>}
+              
+              {/* Drawer */}
+              <div className={`fixed top-0 right-0 h-full w-full md:w-[450px] bg-white z-[90] shadow-2xl transition-transform duration-500 ease-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+                <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f2e8f2] flex items-center justify-center">
+                        <ShoppingCart className="text-[#7d4d7d] w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-serif text-[#7d4d7d]">Tu Cesta</h2>
+                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{totalItems} {totalItems === 1 ? 'producto' : 'productos'}</span>
+                    </div>
+                  </div>
+                  <button onClick={onClose} className="bg-white p-2 rounded-full border border-gray-100 hover:bg-gray-50 transition">
+                    <X className="text-gray-400 w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-8 custom-scroll">
+                  {items.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
+                      <div className="w-24 h-24 rounded-full bg-gray-50 flex items-center justify-center text-gray-200">
+                        <ShoppingCart className="w-12 h-12" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-serif text-gray-800 mb-2">Tu cesta está vacía</p>
+                        <p className="text-sm text-gray-500 leading-relaxed max-w-[200px] mx-auto">¡Empieza a cuidarte añadiendo tus productos favoritos!</p>
+                      </div>
+                      <button onClick={onClose} className="btn-primary px-10 py-4 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg">Descubrir Productos</button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {items.map((item, i) => (
+                        <div key={i} className="flex gap-4 p-4 rounded-2xl bg-white border border-gray-100 transition hover:shadow-md animate-in group">
+                          <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#f2e8f2] shrink-0 border border-gray-100 relative">
+                            <img src={item.image} alt={item.title} className="w-full h-full object-contain p-2 mix-blend-multiply" />
+                            <button 
+                                onClick={() => onRemove(item.title)}
+                                className="absolute -top-1 -left-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <h4 className="font-serif text-lg text-[#7d4d7d] truncate">{item.title}</h4>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 bg-gray-50 px-3 py-1 rounded-full border border-gray-100 shadow-inner scale-90 -ml-2">
+                                <button onClick={() => onUpdateQuantity(item.title, -1)} className="text-[#7d4d7d] hover:scale-125 transition font-bold w-4">-</button>
+                                <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                                <button onClick={() => onUpdateQuantity(item.title, 1)} className="text-[#7d4d7d] hover:scale-125 transition font-bold w-4">+</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {items.length > 0 && (
+                  <div className="p-8 bg-white border-t border-gray-100 space-y-4 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+                    <button 
+                      onClick={() => {
+                        const total = items.reduce((acc, item) => acc + (parseFloat(item.price) * item.quantity), 0);
+                        let message = "¡Hola Marisa! 👋 Me gustaría hacer el siguiente pedido:\n\n";
+                        items.forEach(item => {
+                          message += `▪️ ${item.quantity}x ${item.title} (${item.price}/ud)\n`;
+                        });
+                        message += `\n💰 *Total aproximado:* ${total}€\n\n¿Me confirmas cómo hacemos el pago y el envío? Gracias.`;
+                        
+                        const encodedMessage = encodeURIComponent(message);
+                        window.open(`https://wa.me/34669389884?text=${encodedMessage}`, '_blank');
+                      }}
+                      className="w-full btn-primary py-5 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-xl text-sm flex items-center justify-center gap-3 hover:-translate-y-1 transition duration-300">
+                      Continuar a WhatsApp <ArrowRight className="w-5 h-5" />
+                    </button>
+                    <p className="text-[10px] text-center text-gray-400 italic">
+                        El pedido se enviará directamente a Marisa para gestionar los detalles.
+                    </p>
+                    <StripePayment 
+                      items={items}
+                      onPaymentSuccess={(data) => {
+                         const userEmail = data.email || 'Cliente';
+                         const total = items.reduce((acc, item) => acc + (parseFloat(item.price) * item.quantity), 0);
+                         
+                         let orderDetails = "¡Gracias por tu compra!\n\nResumen de tu pedido:\n\n";
+                         items.forEach(item => {
+                           orderDetails += `- ${item.quantity}x ${item.title} (${item.price}/ud)\n`;
+                         });
+                         orderDetails += `\nTotal pagado: ${total}€\n\nNos pondremos en contacto contigo pronto.`;
+
+                         const SERVICE_ID = 'service_rwybzop';
+                         const TEMPLATE_ID = 'template_21ceni3';
+                         const PUBLIC_KEY = 'HHg9-fVA0eSzzkY4c';
+
+                         const templateParams = {
+                             user_name: 'Cliente Stripe',
+                             user_email: userEmail,
+                             message: orderDetails
+                         };
+
+                         // Enviamos el correo (sin bloquear la interfaz del usuario)
+                         window.emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
+                             .then(() => console.log('Email de confirmación enviado a', userEmail))
+                             .catch(err => console.error('Error al enviar email:', err));
+
+                         alert("¡Pago realizado con éxito!\nHemos enviado un correo de confirmación a: " + userEmail);
+                         onClearCart();
+                         onClose();
+                      }} 
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        };
+
+        const ProductModal = ({ product, onClose, onBuyClick }) => {
+            if (!product) return null;
+
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+                    <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scroll relative z-10 animate-in flex flex-col md:flex-row shadow-2xl">
+                        <button onClick={onClose} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full hover:bg-gray-200 z-20">
+                            <X className="w-6 h-6 text-gray-600" />
+                        </button>
+                        <div className="md:w-1/3 bg-[#f2e8f2] p-8 flex flex-col items-center justify-center text-center">
+                            <div className="w-48 h-48 bg-white rounded-full p-4 mb-6 shadow-inner flex items-center justify-center">
+                                <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply" />
+                            </div>
+                            <h3 className="text-3xl font-serif text-[#7d4d7d] mb-2">{product.title}</h3>
+                            <p className="text-sm text-gray-600 italic">Consulta la información detallada.</p>
+                            <button 
+                                onClick={() => {
+                                    onClose();
+                                    onBuyClick(product);
+                                }}
+                                className="mt-6 btn-primary w-full py-3 rounded-xl font-bold uppercase shadow-lg"
+                            >
+                                Añadir a la Cesta
+                            </button>
+                            <p className="mt-4 text-2xl font-bold text-[#7d4d7d] font-serif">{product.price}</p>
+                        </div>
+                        <div className="md:w-2/3 p-8 bg-white space-y-8">
+                            <div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Info className="text-[#7d4d7d]" />
+                                    <h4 className="text-lg font-bold uppercase tracking-widest text-gray-700">Ingredientes & Beneficios</h4>
+                                </div>
+                                <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
+                                    {product.infoImg ? (
+                                        <img src={product.infoImg} alt="Ingredientes" className="w-full h-auto object-cover" />
+                                    ) : (
+                                        <div className="p-8 text-center text-gray-400">Imagen de información no disponible</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Products = ({ onBuyClick }) => {
+          const [selectedProduct, setSelectedProduct] = useState(null);
+          
+          const products = [
+            { 
+                title: "Café 5.0", 
+                image: "img/Cafe.png",
+                infoImg: "img/cafeInformacion.JPG",
+                price: "43€",
+            },
+            { 
+                title: "Infusión Zen", 
+                image: "img/infusión.png",
+                infoImg: "img/InfusionInformacion.JPG",
+                price: "43€",
+            },
+            { 
+                title: "La Caña Zero", 
+                image: "img/Caña de azucar.png",
+                infoImg: "img/cañaInformacion.JPG",
+                price: "17€",
+            },
+            { 
+                title: "Elixir Juventud", 
+                image: "img/Elixil de la juventud.png",
+                infoImg: "img/ElixilInformacion.JPG",
+                price: "53€",
+            },
+            { 
+                title: "Choco Slander", 
+                image: "img/caco.png",
+                infoImg: "img/cacao.JPG",
+                price: "43€",
+            },
+          ];
+
+          return (
+            <section id="productos" className="py-24 px-6 bg-[#f2e8f2]">
+              <div className="max-w-7xl mx-auto">
+                <h2 className="text-4xl md:text-5xl font-serif text-center mb-16 text-[#333]">Nuestros Productos</h2>
+                
+                <div className="flex flex-wrap justify-center gap-12">
+                  {products.map((p, i) => (
+                    <div key={i} className="flex flex-col items-center gap-6 w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-2rem)]">
+                      <div 
+                        onClick={() => setSelectedProduct(p)}
+                        className="bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 w-full aspect-square flex items-center justify-center overflow-hidden border border-white hover:border-[#7d4d7d]/30 cursor-pointer"
+                      >
+                        <img src={p.image} alt={p.title} className="max-w-full h-auto object-contain hover:scale-110 transition duration-500 mix-blend-multiply" />
+                      </div>
+                      <h3 className="text-xl font-serif font-bold text-[#7d4d7d]">{p.title}</h3>
+                      <div className="flex gap-2 w-full max-w-[280px]">
+                        <button onClick={() => onBuyClick(p)} className="flex-1 btn-primary py-3 px-4 rounded-full text-xs font-bold uppercase shadow-md transition-transform hover:scale-105">Comprar</button>
+                        <button 
+                            onClick={() => setSelectedProduct(p)}
+                            className="flex-1 btn-outline py-3 px-4 rounded-full text-xs font-bold uppercase whitespace-nowrap"
+                        >
+                            Más Info
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onBuyClick={onBuyClick} />
+            </section>
+          );
+        };
+
+        const SuccessStories = () => {
+          const [currentIndex, setCurrentIndex] = useState(0);
+          const images = [
+            { src: "img/Comienzo1.JPG", label: "El Comienzo", desc: "El inicio de un gran cambio." },
+            { src: "img/comienzo2.JPG", label: "El Comienzo", desc: "Primeros pasos hacia el bienestar." },
+            { src: "img/Comienzo3.JPG", label: "El Comienzo", desc: "Construyendo nuevos hábitos." },
+            { src: "img/Transicion1.JPG", label: "En Transición", desc: "La constancia empieza a dar sus frutos." },
+            { src: "img/final1.JPG", label: "Estado Actual", desc: "Vitalidad, energía y equilibrio." }
+          ];
+
+          const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % images.length);
+          const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+
+          // Auto-play
+          useEffect(() => {
+            const timer = setInterval(nextSlide, 5000);
+            return () => clearInterval(timer);
+          }, []);
+
+          return (
+            <section id="progreso" className="py-24 px-6 bg-white overflow-hidden">
+              <div className="max-w-7xl mx-auto text-center">
+                <h2 className="text-4xl md:text-5xl font-serif mb-4 text-[#7d4d7d]">Progreso Real</h2>
+                <p className="text-gray-600 mb-16 max-w-2xl mx-auto italic text-lg">
+                  El progreso real de Marisabel: Un viaje de transformación personal hacia el equilibrio y la salud.
+                </p>
+                
+                <div className="relative max-w-4xl mx-auto group">
+                  {/* Glassmorphism Frame */}
+                  <div className="relative h-[400px] md:h-[600px] rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(125,77,125,0.2)] border-8 border-white p-2 bg-white/50 backdrop-blur-sm">
+                    <div className="relative w-full h-full rounded-[2.5rem] overflow-hidden">
+                      {images.map((img, i) => (
+                        <div 
+                          key={i}
+                          className={`absolute inset-0 transition-all duration-1000 ease-in-out transform ${
+                            i === currentIndex ? 'opacity-100 scale-100' : 'opacity-0 scale-105 pointer-events-none'
+                          }`}
+                        >
+                          <img 
+                            src={img.src} 
+                            alt={img.label} 
+                            className="w-full h-full object-contain bg-[#f2e8f2]/50"
+                          />
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-10 text-white text-left">
+                            <span className="inline-block px-4 py-1.5 bg-[#7d4d7d] rounded-full text-[10px] font-bold uppercase mb-3 tracking-[0.2em] shadow-lg">
+                              {img.label}
+                            </span>
+                            <h3 className="text-2xl md:text-3xl font-serif mb-2 leading-tight">Marisabel</h3>
+                            <p className="text-lg text-gray-200 font-light max-w-lg italic">"{img.desc}"</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Navigation Buttons - Elegant & Discreet */}
+                  <button 
+                    onClick={prevSlide}
+                    className="absolute left-[-20px] top-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-xl text-[#7d4d7d] hover:bg-[#7d4d7d] hover:text-white transition-all transform hover:scale-110 active:scale-95 z-10 hidden md:block"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <button 
+                    onClick={nextSlide}
+                    className="absolute right-[-20px] top-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-xl text-[#7d4d7d] hover:bg-[#7d4d7d] hover:text-white transition-all transform hover:scale-110 active:scale-95 z-10 hidden md:block"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+
+                  {/* Indicators - Premium look */}
+                  <div className="flex justify-center gap-4 mt-12">
+                    {images.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentIndex(i)}
+                        className={`transition-all duration-500 rounded-full ${
+                          i === currentIndex ? 'w-10 h-2.5 bg-[#7d4d7d]' : 'w-2.5 h-2.5 bg-gray-200 hover:bg-[#7d4d7d]/30'
+                        }`}
+                        aria-label={`Go to slide ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        };
+
+        // --- COMPONENTE: FORMULARIO DE CONTACTO (AHORA CON EMAILJS) ---
+        const ContactSection = () => {
+            const [formState, setFormState] = useState({ name: '', email: '', message: '' });
+            const [isSent, setIsSent] = useState(false);
+            const [isSending, setIsSending] = useState(false);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                setIsSending(true);
+
+                // ⚠️ TUS CLAVES DE EMAILJS AQUÍ ⚠️
+                const SERVICE_ID = 'service_rwybzop'; // Tu ID de servicio real
+                const TEMPLATE_ID = 'template_21ceni3'; // Pon el ID de tu plantilla aquí (ej: template_xxxxxx)
+                const PUBLIC_KEY = 'HHg9-fVA0eSzzkY4c'; // Pon tu llave pública aquí (ej: rlLgcUrRr...)
+
+                const templateParams = {
+                    user_name: formState.name,
+                    user_email: formState.email,
+                    message: formState.message
+                };
+
+                window.emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
+                    .then((response) => {
+                        setIsSending(false);
+                        setIsSent(true);
+                        setFormState({ name: '', email: '', message: '' });
+                        
+                        setTimeout(() => {
+                            setIsSent(false);
+                        }, 4000);
+                    }, (error) => {
+                        console.log('Error al enviar:', error);
+                        alert('Hubo un error al enviar el mensaje. Inténtalo de nuevo.');
+                        setIsSending(false);
+                    });
+            };
+
+            return (
+                <section id="contacto" className="py-24 px-6 bg-[#7d4d7d] text-white">
+                    <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-12 items-center">
+                        
+                        {/* Texto e Información (Izquierda) */}
+                        <div className="md:w-1/2 space-y-8">
+                            <h2 className="text-4xl md:text-5xl font-serif leading-tight">¿Tienes dudas? <br/> Hablemos.</h2>
+                            <p className="text-lg text-white/80 leading-relaxed max-w-md">
+                                Estoy aquí para asesorarte. Si no sabes qué producto es mejor para ti o quieres un plan personalizado, escríbeme.
+                            </p>
+                            
+                            <div className="space-y-4 pt-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                                        <Mail className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs uppercase font-bold tracking-widest opacity-60">Escríbeme un Email</p>
+                                        <p className="font-serif text-xl">isabelgamez726@gmail.com</p>
+                                    </div>
+                                </div>
+                                <a 
+                                    href="https://wa.me/34669389884" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-4 group hover:bg-white/10 p-4 rounded-3xl transition-all w-fit cursor-pointer border border-transparent hover:border-white/20"
+                                >
+                                    <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                        <Phone className="w-6 h-6" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs uppercase font-bold tracking-widest opacity-60">WhatsApp Directo</p>
+                                        <p className="font-serif text-xl">+34 669 389 884</p>
+                                    </div>
+                                </a>
+                                <a 
+                                    href="https://www.instagram.com/marisabel.artabria/" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-4 group hover:bg-white/10 p-4 rounded-3xl transition-all w-fit cursor-pointer border border-transparent hover:border-white/20"
+                                >
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                        <Instagram className="w-6 h-6" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs uppercase font-bold tracking-widest opacity-60">Sígueme en Instagram</p>
+                                        <p className="font-serif text-xl">@marisabel.artabria</p>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Formulario (Derecha) */}
+                        <div className="md:w-1/2 w-full">
+                            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl text-gray-800">
+                                {isSent ? (
+                                    <div className="h-[300px] flex flex-col items-center justify-center text-center animate-in">
+                                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
+                                            <CheckCircle2 className="w-10 h-10" />
+                                        </div>
+                                        <h3 className="text-2xl font-serif text-[#7d4d7d] mb-2">¡Mensaje Enviado!</h3>
+                                        <p className="text-gray-500">Marisa te responderá lo antes posible.</p>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleSubmit} className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold uppercase tracking-widest text-gray-400">Tu Nombre</label>
+                                            <input 
+                                                required 
+                                                type="text" 
+                                                placeholder="María García"
+                                                className="w-full bg-gray-50 border-b-2 border-gray-200 p-3 focus:outline-none focus:border-[#7d4d7d] transition"
+                                                value={formState.name}
+                                                onChange={(e) => setFormState({...formState, name: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold uppercase tracking-widest text-gray-400">Tu Email</label>
+                                            <input 
+                                                required 
+                                                type="email" 
+                                                placeholder="maria@ejemplo.com"
+                                                className="w-full bg-gray-50 border-b-2 border-gray-200 p-3 focus:outline-none focus:border-[#7d4d7d] transition"
+                                                value={formState.email}
+                                                onChange={(e) => setFormState({...formState, email: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold uppercase tracking-widest text-gray-400">¿En qué puedo ayudarte?</label>
+                                            <textarea 
+                                                required 
+                                                rows="3"
+                                                placeholder="Me gustaría saber más sobre el café..."
+                                                className="w-full bg-gray-50 border-b-2 border-gray-200 p-3 focus:outline-none focus:border-[#7d4d7d] transition resize-none"
+                                                value={formState.message}
+                                                onChange={(e) => setFormState({...formState, message: e.target.value})}
+                                            ></textarea>
+                                        </div>
+                                        <button disabled={isSending} className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg transition-all ${isSending ? 'bg-gray-400 text-white cursor-not-allowed' : 'btn-primary'}`}>
+                                            {isSending ? 'Enviando...' : (
+                                                <>Enviar Mensaje <ArrowRight className="w-4 h-4" /></>
+                                            )}
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+            );
+        };
+
+        const AIChat = () => {
+          const [isOpen, setIsOpen] = useState(false);
+          const [messages, setMessages] = useState([]);
+          const [input, setInput] = useState('');
+          const [loading, setLoading] = useState(false);
+          const endRef = useRef(null);
+
+          useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+
+          const handleSend = async () => {
+            if (!input.trim()) return;
+            const userMsg = input;
+            setInput('');
+            setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+            setLoading(true);
+
+            try {
+                const response = await fetch(GEMINI_FINAL_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userMsg + " (Responde brevemente en español como asistente de Marisa, experta en bienestar y productos Artabría)" }] }]
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                
+                const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "¡Hola! ¿En qué puedo ayudarte?";
+                setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+            } catch (e) {
+                console.error("Error en Chat:", e);
+                setMessages(prev => [...prev, { role: 'bot', text: "Marisa está ocupada ahora, pero dime, ¿qué necesitas?" }]);
+            } finally {
+                setLoading(false);
+            }
+          };
+
+          return (
+            <div className="fixed bottom-8 right-8 z-[100]">
+              {isOpen ? (
+                <div className="bg-white w-80 md:w-96 h-[500px] rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden animate-in">
+                  <div className="bg-[#7d4d7d] p-6 text-white flex justify-between items-center shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center italic font-serif text-lg">M</div>
+                      <div>
+                        <h4 className="font-bold text-sm">Asistente de Marisa</h4>
+                        <p className="text-[10px] opacity-80 uppercase tracking-widest font-bold">En línea ahora</p>
+                      </div>
+                    </div>
+                    <X className="cursor-pointer hover:scale-110 transition" onClick={() => setIsOpen(false)} />
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                    {messages.length === 0 && (
+                      <div className="text-center text-gray-400 py-10">
+                        <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p className="text-xs italic">"¡Hola! Soy el asistente de Marisa. ¿Cómo puedo ayudarte hoy con tu bienestar?"</p>
+                      </div>
+                    )}
+                    {messages.map((m, i) => (
+                      <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${m.role === 'user' ? 'bg-[#7d4d7d] text-white rounded-tr-none shadow-md' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-none'}`}>
+                          {m.text}
+                        </div>
+                      </div>
+                    ))}
+                    {loading && <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest animate-pulse ml-4">Escribiendo...</div>}
+                    <div ref={endRef} />
+                  </div>
+                  <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+                    <input 
+                      onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                      value={input} onChange={(e) => setInput(e.target.value)} 
+                      className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#7d4d7d]/20 border border-transparent focus:border-[#7d4d7d]/20 transition" 
+                      placeholder="Pregunta algo..." 
+                    />
+                    <button onClick={handleSend} className="bg-[#7d4d7d] text-white p-2.5 rounded-full hover:scale-110 transition shadow-lg">
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setIsOpen(true)} className="bg-[#7d4d7d] text-white p-5 rounded-full shadow-2xl hover:scale-110 transition duration-300 group relative border-4 border-white">
+                  <MessageSquare className="w-7 h-7" />
+                  <span className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold animate-bounce text-white">1</span>
+                </button>
+              )}
+            </div>
+          );
+        };
+
+        const Footer = () => (
+          <footer className="bg-white py-20 px-6 border-t border-gray-100">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+              <div className="flex flex-col items-center md:items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-[#f2e8f2] flex items-center justify-center italic font-serif text-[#7d4d7d] text-xl font-bold">M</div>
+                <p className="text-gray-400 text-xs uppercase tracking-[0.3em] font-bold">Cuidate Conmigo • Marisa</p>
+              </div>
+              <div className="flex gap-8 text-[10px] uppercase font-bold tracking-[0.2em] text-gray-500">
+                <a href="#" className="hover:text-[#7d4d7d] transition">Productos</a>
+                <a href="#" className="hover:text-[#7d4d7d] transition">Progreso</a>
+                <a href="#" className="hover:text-[#7d4d7d] transition">Trabaja con nosotros</a>
+                <a href="#" className="hover:text-[#7d4d7d] transition">Privacidad</a>
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">© 2024 Artabría Asesoría</p>
+            </div>
+          </footer>
+        );
+
+        const App = () => {
+          const [cart, setCart] = useState([]);
+          const [isCartOpen, setIsCartOpen] = useState(false);
+          const [activeProduct, setActiveProduct] = useState(null);
+
+          const addToCart = (product, quantity) => {
+            const existingItem = cart.find(item => item.title === product.title);
+            if (existingItem) {
+              setCart(cart.map(item => 
+                item.title === product.title ? { ...item, quantity: item.quantity + quantity } : item
+              ));
+            } else {
+              setCart([...cart, { ...product, quantity }]);
+            }
+            setActiveProduct(null);
+            setIsCartOpen(true);
+          };
+
+          const removeFromCart = (title) => {
+            setCart(cart.filter(item => item.title !== title));
+          };
+
+          const updateQuantity = (title, delta) => {
+            setCart(cart.map(item => 
+              item.title === title ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+            ));
+          };
+
+          const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+          return (
+            <div className="min-h-screen">
+              <Header cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
+              <Hero />
+              <Products onBuyClick={(p) => setActiveProduct(p)} />
+              <SuccessStories />
+              <ContactSection />
+              <Footer />
+              <AIChat />
+              
+              <QuantityModal 
+                product={activeProduct} 
+                isOpen={!!activeProduct} 
+                onClose={() => setActiveProduct(null)} 
+                onConfirm={addToCart} 
+              />
+              
+              <CartDrawer 
+                items={cart} 
+                isOpen={isCartOpen} 
+                onClose={() => setIsCartOpen(false)} 
+                onRemove={removeFromCart}
+                onUpdateQuantity={updateQuantity}
+                onClearCart={() => setCart([])}
+              />
+            </div>
+          );
+        };
+
+        const container = document.getElementById('root');
+        const root = createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
