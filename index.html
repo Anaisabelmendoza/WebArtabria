@@ -85,9 +85,9 @@
         import { loadStripe } from '@stripe/stripe-js';
         import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
         
-        const API_KEY = "AIzaSyCkDLXyoJJKa-tdl_Ao-1a57-70rTI2fu4"; 
-        const GEMINI_FINAL_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
-        console.log("Chatbot configurado con endpoint:", GEMINI_FINAL_ENDPOINT.split('?')[0]);
+        // El endpoint del chatbot ahora apunta a nuestro backend seguro
+        const GEMINI_BACKEND_ENDPOINT = 'http://localhost:4242/chat';
+        console.log("Chatbot configurado con endpoint trasero");
 
         const Header = ({ cartCount, onCartClick }) => {
           const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -829,18 +829,16 @@
             setLoading(true);
 
             try {
-                const response = await fetch(GEMINI_FINAL_ENDPOINT, {
+                const response = await fetch(GEMINI_BACKEND_ENDPOINT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userMsg + " (Responde brevemente en español como asistente de Marisa, experta en bienestar y productos Artabría)" }] }]
-                    })
+                    body: JSON.stringify({ message: userMsg })
                 });
                 
                 const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
+                if (data.error) throw new Error(data.error);
                 
-                const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "¡Hola! ¿En qué puedo ayudarte?";
+                const botText = data.text || "¡Hola! ¿En qué puedo ayudarte?";
                 setMessages(prev => [...prev, { role: 'bot', text: botText }]);
             } catch (e) {
                 console.error("Error en Chat:", e);
