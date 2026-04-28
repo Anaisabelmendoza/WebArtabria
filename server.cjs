@@ -56,7 +56,7 @@ app.post('/chat', async (req, res) => {
     try {
         // Usamos el modelo gemini-1.5-flash
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-        
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -66,9 +66,9 @@ app.post('/chat', async (req, res) => {
         });
 
         const data = await response.json();
-        
+
         if (data.error) throw new Error(data.error.message);
-        
+
         const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "¡Hola! ¿En qué puedo ayudarte?";
         res.json({ text: botText });
 
