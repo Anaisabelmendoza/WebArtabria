@@ -781,7 +781,7 @@
                   </div>
                   <div className="text-left">
                     <p className="text-xs uppercase font-bold tracking-widest opacity-60">Sígueme en Instagram</p>
-                    <p className="font-serif text-xl">@marisabel.artabria</p>
+                    <p className="font-serif text-xl">@marisacruzzg</p>
                   </div>
                 </a>
                 <a
@@ -895,16 +895,16 @@
           setMessages(prev => [...prev, { role: 'bot', text: botText }]);
         } catch (e) {
           console.error("Error en Chat:", e);
-          setMessages(prev => [...prev, { role: 'bot', text: "Marisa está ocupada ahora, pero dime, ¿qué necesitas?" }]);
+          setMessages(prev => [...prev, { role: 'bot', text: "En este momento Marisa se encuentra ocupada. Por favor, escríbele por WhatsApp o correo electrónico y te responderá a la mayor brevedad." }]);
         } finally {
           setLoading(false);
         }
       };
 
       return (
-        <div className="fixed bottom-8 right-8 z-[100]">
+        <div className={`fixed z-[100] ${isOpen ? 'bottom-4 right-4 left-4 md:left-auto md:right-8 md:bottom-8' : 'bottom-8 right-8'}`}>
           {isOpen ? (
-            <div className="bg-white w-80 md:w-96 h-[500px] rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden animate-in">
+            <div className="bg-white w-full md:w-96 h-[500px] max-h-[calc(100vh-2rem)] rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden animate-in">
               <div className="bg-[#7d4d7d] p-6 text-white flex justify-between items-center shadow-md">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center italic font-serif text-lg">M</div>
