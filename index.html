@@ -119,7 +119,7 @@
     import {
       Menu, Search, ShoppingCart, Truck, UserRoundCheck, Lock,
       ChevronLeft, ChevronRight, Send, X, MessageSquare, Briefcase,
-      CheckCircle2, ArrowRight, Info, Mail, Phone, Instagram
+      CheckCircle2, ArrowRight, Info, Mail, Phone, Instagram, Quote
     } from 'lucide-react';
     import { loadStripe } from '@stripe/stripe-js';
     import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -231,12 +231,27 @@
     // --- MODAL DE CANTIDAD ---
     const QuantityModal = ({ product, isOpen, onClose, onConfirm }) => {
       const [quantity, setQuantity] = useState(1);
+      const [selectedVariant, setSelectedVariant] = useState(null);
 
       useEffect(() => {
-        if (isOpen) setQuantity(1);
-      }, [isOpen]);
+        if (isOpen) {
+          setQuantity(1);
+          if (product?.variants) {
+            setSelectedVariant(product.variants[0]);
+          } else {
+            setSelectedVariant(null);
+          }
+        }
+      }, [isOpen, product]);
 
       if (!isOpen || !product) return null;
+
+      const handleConfirm = () => {
+        const finalProduct = selectedVariant
+          ? { ...product, title: `${product.title} - ${selectedVariant.name}`, price: selectedVariant.price }
+          : product;
+        onConfirm(finalProduct, quantity);
+      };
 
       return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in">
@@ -249,7 +264,24 @@
                 <img src={product.image} alt={product.title} className="w-full h-full object-contain p-4 mix-blend-multiply" />
               </div>
               <h3 className="text-3xl font-serif text-[#7d4d7d] mb-2">{product.title}</h3>
-              <p className="text-gray-500 text-sm mb-8 leading-relaxed">Selecciona la cantidad que deseas añadir a tu cesta:</p>
+
+              {product.variants ? (
+                <div className="mb-8 space-y-3">
+                  <p className="text-gray-500 text-sm leading-relaxed mb-4">Elige tu opción:</p>
+                  {product.variants.map((v, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedVariant(v)}
+                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex justify-between items-center ${selectedVariant?.name === v.name ? 'border-[#7d4d7d] bg-[#f2e8f2]/30' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}
+                    >
+                      <span className={`text-sm font-bold ${selectedVariant?.name === v.name ? 'text-[#7d4d7d]' : 'text-gray-600'}`}>{v.name}</span>
+                      <span className="text-[#7d4d7d] font-bold">{v.price}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm mb-8 leading-relaxed">Selecciona la cantidad que deseas añadir a tu cesta:</p>
+              )}
 
               <div className="flex items-center justify-center gap-8 mb-10 bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <button
@@ -265,7 +297,7 @@
 
               <div className="flex flex-col gap-3">
                 <button
-                  onClick={() => onConfirm(product, quantity)}
+                  onClick={handleConfirm}
                   className="w-full btn-primary py-4 px-6 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2"
                 >
                   Confirmar y Añadir <CheckCircle2 className="w-4 h-4" />
@@ -502,11 +534,12 @@
       return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-          <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scroll relative z-10 animate-in flex flex-col md:flex-row shadow-2xl">
-            <button onClick={onClose} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full hover:bg-gray-200 z-20">
+          <div className="bg-white rounded-[2rem] w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scroll relative z-10 animate-in flex flex-col md:flex-row shadow-2xl">
+            <button onClick={onClose} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full hover:bg-gray-200 z-20 transition">
               <X className="w-6 h-6 text-gray-600" />
             </button>
-            <div className="md:w-1/3 bg-[#f2e8f2] p-8 flex flex-col items-center justify-center text-center">
+            
+            <div className="md:w-1/3 bg-[#f2e8f2] p-8 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-[#7d4d7d]/10">
               <div className="w-48 h-48 bg-white rounded-full p-4 mb-6 shadow-inner flex items-center justify-center">
                 <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply" />
               </div>
@@ -517,25 +550,35 @@
                   onClose();
                   onBuyClick(product);
                 }}
-                className="mt-6 btn-primary w-full py-3 rounded-xl font-bold uppercase shadow-lg"
+                className="mt-6 btn-primary w-full py-4 rounded-xl font-bold uppercase shadow-lg tracking-widest text-xs"
               >
                 Añadir a la Cesta
               </button>
               <p className="mt-4 text-2xl font-bold text-[#7d4d7d] font-serif">{product.price}</p>
             </div>
-            <div className="md:w-2/3 p-8 bg-white space-y-8">
+
+            <div className="md:w-2/3 p-10 md:p-14 bg-white space-y-8">
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Info className="text-[#7d4d7d]" />
-                  <h4 className="text-lg font-bold uppercase tracking-widest text-gray-700">Ingredientes & Beneficios</h4>
+                <div className="flex items-center gap-3 mb-6">
+                  <Info className="w-6 h-6 text-[#7d4d7d]" />
+                  <h4 className="text-xl font-bold uppercase tracking-widest text-gray-700">Información del Producto</h4>
                 </div>
-                <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
-                  {product.infoImg ? (
+                
+                {product.infoImg ? (
+                  <div className="rounded-[2rem] overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
                     <img src={product.infoImg} alt="Ingredientes" className="w-full h-auto object-cover" />
-                  ) : (
-                    <div className="p-8 text-center text-gray-400">Imagen de información no disponible</div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#fcfaff] p-10 md:p-14 rounded-[3rem] border border-[#7d4d7d]/10 shadow-inner relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-[#7d4d7d]"></div>
+                    <p className="text-2xl md:text-3xl text-gray-600 leading-relaxed font-serif italic relative z-10">
+                      "{product.description || "Información detallada en preparación para este producto."}"
+                    </p>
+                    <div className="absolute bottom-4 right-8 opacity-10">
+                      <Quote className="w-20 h-20 text-[#7d4d7d]" />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -577,35 +620,167 @@
           infoImg: "img/cacao.JPG",
           price: "43€",
         },
+        {
+          title: "PackCafe&elixil",
+          image: "img/PackCafe&Elixil.png",
+          price: "82€",
+          oldPrice: "90€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "PackCafe&ID",
+          image: "img/PackCafe&ID.png",
+          price: "75€",
+          oldPrice: "80€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "PackCafe&Caña0",
+          image: "img/PackCafe&Caña0.png",
+          price: "50€",
+          oldPrice: "54€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "PackCafe&Chocolate",
+          image: "img/PackCafe&Chocolate.png",
+          price: "75€",
+          oldPrice: "80€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "Pack Chocolate & Elixir",
+          image: "img/PackCochocale&Elixil.png",
+          price: "82€",
+          oldPrice: "90€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "Pack ID & Chocolate",
+          image: "img/PackID&Choco.png",
+          price: "75€",
+          oldPrice: "80€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "Combo CafeChocoID",
+          image: "img/ComboCafeChocoID.png",
+          price: "110€",
+          oldPrice: "120€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "Pack Completo",
+          image: "img/PackCompleto.png",
+          price: "165€",
+          oldPrice: "184€",
+          hideInfo: true,
+          isPack: true
+        },
+        {
+          title: "Sobres ID",
+          image: "img/SobresID.png",
+          price: "15€",
+          isStarter: true,
+          description: "Este pack está diseñado para que puedas probar la experiencia Artabría durante 7 o 15 días. Es la forma perfecta de conocer nuestro producto y empezar a sentir sus beneficios antes de comprometerte con un tratamiento completo.",
+          variants: [
+            { name: "7 sobres de infusión", price: "15€" },
+            { name: "15 sobres de infusión", price: "25€" }
+          ]
+        },
+        {
+          title: "Sobres de Café",
+          image: "img/SobresCafe.png",
+          price: "15€",
+          isStarter: true,
+          description: "Ideal para tu primera toma de contacto. Disfruta de nuestro Café 5.0 en formato individual durante 7 o 15 días y descubre cómo puede transformar tu rutina diaria. Una oportunidad exclusiva para probar nuestro sabor y energía.",
+          variants: [
+            { name: "7 sobres de café", price: "15€" },
+            { name: "15 sobres de café", price: "25€" }
+          ]
+        },
+        {
+          title: "Combo Sobres ID & Café",
+          image: "img/SobresIDCafe.png",
+          price: "25€",
+          isStarter: true,
+          description: "La combinación perfecta para comenzar tu transformación. Con este pack combo, podrás disfrutar de los beneficios de nuestra Infusión Zen y la energía del Café 5.0 al mismo tiempo. Prueba ambos productos durante 7 o 15 días y siente la experiencia Artabría al completo.",
+          variants: [
+            { name: "7 sobres ID + 7 sobres Café", price: "25€" },
+            { name: "15 sobres ID + 15 sobres Café", price: "43€" }
+          ]
+        },
       ];
+
+      const individualProducts = products.filter(p => !p.isPack && !p.isStarter);
+      const packProducts = products.filter(p => p.isPack);
+      const starterProducts = products.filter(p => p.isStarter);
+
+      const ProductCard = ({ p, i }) => (
+        <div key={i} className="flex flex-col items-center gap-6 w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-2rem)]">
+          <div
+            onClick={() => !p.hideInfo && setSelectedProduct(p)}
+            className={`bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 w-full aspect-square flex items-center justify-center overflow-hidden border border-white hover:border-[#7d4d7d]/30 ${!p.hideInfo ? 'cursor-pointer' : ''}`}
+          >
+            <img src={p.image} alt={p.title} className="max-w-full h-auto object-contain hover:scale-110 transition duration-500 mix-blend-multiply" />
+          </div>
+          <h3 className="text-xl font-serif font-bold text-[#7d4d7d]">{p.title}</h3>
+          <div className="flex flex-col items-center -mt-2">
+            {p.oldPrice && <span className="text-gray-400 line-through text-sm">{p.oldPrice}</span>}
+            <p className="text-2xl font-bold text-[#7d4d7d] font-serif">{p.price}</p>
+          </div>
+          <div className="flex gap-2 w-full max-w-[280px]">
+            <button onClick={() => onBuyClick(p)} className="flex-1 btn-primary py-3 px-4 rounded-full text-xs font-bold uppercase shadow-md transition-transform hover:scale-105">Comprar</button>
+            {!p.hideInfo && (
+              <button
+                onClick={() => setSelectedProduct(p)}
+                className="flex-1 btn-outline py-3 px-4 rounded-full text-xs font-bold uppercase whitespace-nowrap"
+              >
+                Más Info
+              </button>
+            )}
+          </div>
+        </div>
+      );
 
       return (
         <section id="productos" className="py-24 px-6 bg-[#f2e8f2]">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-serif text-center mb-16 text-[#7d4d7d]">Nuestros Productos</h2>
-
-            <div className="flex flex-wrap justify-center gap-12">
-              {products.map((p, i) => (
-                <div key={i} className="flex flex-col items-center gap-6 w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-2rem)]">
-                  <div
-                    onClick={() => setSelectedProduct(p)}
-                    className="bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 w-full aspect-square flex items-center justify-center overflow-hidden border border-white hover:border-[#7d4d7d]/30 cursor-pointer"
-                  >
-                    <img src={p.image} alt={p.title} className="max-w-full h-auto object-contain hover:scale-110 transition duration-500 mix-blend-multiply" />
-                  </div>
-                  <h3 className="text-xl font-serif font-bold text-[#7d4d7d]">{p.title}</h3>
-                  <div className="flex gap-2 w-full max-w-[280px]">
-                    <button onClick={() => onBuyClick(p)} className="flex-1 btn-primary py-3 px-4 rounded-full text-xs font-bold uppercase shadow-md transition-transform hover:scale-105">Comprar</button>
-                    <button
-                      onClick={() => setSelectedProduct(p)}
-                      className="flex-1 btn-outline py-3 px-4 rounded-full text-xs font-bold uppercase whitespace-nowrap"
-                    >
-                      Más Info
-                    </button>
-                  </div>
+            {starterProducts.length > 0 && (
+              <div className="mb-32">
+                <h2 className="text-4xl md:text-5xl font-serif text-center mb-16 text-[#7d4d7d]">Productos Para Comenzar</h2>
+                <div className="flex flex-wrap justify-center gap-12">
+                  {starterProducts.map((p, i) => (
+                    <ProductCard key={i} p={p} i={i} />
+                  ))}
                 </div>
+              </div>
+            )}
+
+            <h2 className="text-4xl md:text-5xl font-serif text-center mb-16 text-[#7d4d7d]">Nuestros Productos</h2>
+            <div className="flex flex-wrap justify-center gap-12 mb-32">
+              {individualProducts.map((p, i) => (
+                <ProductCard key={i} p={p} i={i} />
               ))}
             </div>
+
+            {packProducts.length > 0 && (
+              <>
+                <h2 className="text-4xl md:text-5xl font-serif text-center mb-16 text-[#7d4d7d]">Nuestros Packs</h2>
+                <div className="flex flex-wrap justify-center gap-12">
+                  {packProducts.map((p, i) => (
+                    <ProductCard key={i} p={p} i={i} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onBuyClick={onBuyClick} />
         </section>
